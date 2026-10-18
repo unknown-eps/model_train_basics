@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 import yaml
+from torch import nn
 
 from build_model import ModelConfig
 
@@ -19,6 +20,42 @@ def parsing_arguments() -> argparse.Namespace:
         help="Path to the model's YAML configuration file.",
     )
     return parser.parse_args()
+
+
+class attention_module(nn.Module):
+    """Defines the attention module"""
+
+    def __init__(self, d_model, d_head):
+        super().__init__()
+        self.d_model = d_model
+        self.d_head = d_head
+        self.W_q, self.W_k, self.W_v = (
+            nn.Linear(d_model, d_model),
+            nn.Linear(d_model, d_model),
+            nn.Linear(d_model, d_model),
+        )
+
+    def forward(self, x):
+        """X can be shape B,S,D or S,D where B,S,D denote batch,seq len and d_model respectively"""
+        if x.ndim not in (2,3):
+            raise ValueError(
+                "Inputs to attention forward should have shape ndim 2 or 3"
+            )
+        if x.ndim == 2:
+            x = x.reshape(-1, *x.shape[0])
+        # x is B,S,D at this point
+        if x.shape[-1]!=self.d_model:
+            raise ValueError("Last dimension must match model dimension.")
+
+
+class llama_style_model(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.embedding = nn.Embedding(
+            num_embeddings=config.vocab_size, embedding_dim=config.d_model
+        )
+        self.norm = nn.RMSNorm(normalized_shape=config.d_model, eps=1e-5)
 
 
 def main() -> None:
