@@ -1,0 +1,5 @@
+vocab_size: 10000
+num_layers: 4
+random_seed: 42
+d_model: 1024
+d_head: 64

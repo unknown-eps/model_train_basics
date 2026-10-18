@@ -1,3 +1,41 @@
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environments / secrets
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs / local data
+*.log
+*.pt
+*.ckpt
+wandb/
+runs/
