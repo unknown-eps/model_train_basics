@@ -18,3 +18,13 @@
 4. Write tests
 5. Write linting support and auto-format on commits.
 6. Setting up github ci.
+
+## Run the model setup
+
+```bash
+pixi run -e gpu python model.py --config_path sample_configs/sample_config.yaml
+```
+
+`--config_path` is required. The entry point loads and validates the YAML using
+`ModelConfig` from `build_model.py`, seeds PyTorch before any layers are created,
+and prints the configuration. Model layers are not implemented yet.
