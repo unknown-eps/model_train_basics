@@ -13,6 +13,7 @@ version = "0.1.0"
 [dependencies]
 python = "3.12.*"
 ruff = ">=0.17.1,<0.18"
+pytest = ">=9.1.1,<10"
 
 [feature.gpu]
 platforms = ["linux-gpu"]
@@ -32,3 +33,6 @@ transformers = ">=4.51,<5"
 [environments]
 gpu = ["gpu"]
 cpu = ["cpu"]
+
+[pypi-dependencies]
+pydantic = ">=2.14.1, <3"
