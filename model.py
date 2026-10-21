@@ -37,17 +37,25 @@ class attention_module(nn.Module):
 
     def forward(self, x):
         """X can be shape B,S,D or S,D where B,S,D denote batch,seq len and d_model respectively"""
-        if x.ndim not in (2,3):
+        if x.ndim not in (2, 3):
             raise ValueError(
                 "Inputs to attention forward should have shape ndim 2 or 3"
             )
         if x.ndim == 2:
-            x = x.reshape(-1, *x.shape[0])
+            x = x.unsqueeze(0)
         # x is B,S,D at this point
-        if x.shape[-1]!=self.d_model:
+        if x.shape[-1] != self.d_model:
             raise ValueError("Last dimension must match model dimension.")
-
-
+        B,S, _ = x.shape
+        d_model,d_head = self.d_model,self.d_head
+        num_heads: int = d_model//d_head
+        q,k,v = self.W_q(x).reshape(B,num_heads,S,d_head),self.W_k(x).reshape(B,num_heads,S,d_head),self.W_v(x).reshape(B,num_heads,S,d_head)
+        attn_matrices = q@k.transpose(1,2)/d_model**0.5
+        mask = torch.ones(S, S, device=x.device, dtype=torch.bool).triu(diagonal=1)
+        attn_scores = attn_matrices.masked_fill(mask, float("-inf"))
+        softmax_scores = torch.softmax(attn_scores,dim=-1)
+        modified_reps = softmax_scores@v # B,num_heads,S,d_head
+        return modified_reps.transpose(2,3).reshape(B,S,d_model)
 class llama_style_model(nn.Module):
     def __init__(self, config):
         super().__init__()
