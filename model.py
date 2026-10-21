@@ -27,6 +27,10 @@ class attention_module(nn.Module):
 
     def __init__(self, d_model, d_head):
         super().__init__()
+        if d_model <= 0 or d_head <= 0 or d_model % d_head != 0:
+            raise ValueError(
+                "d_model and d_head must be positive, and d_head must divide d_model."
+            )
         self.d_model = d_model
         self.d_head = d_head
         self.W_q, self.W_k, self.W_v = (
@@ -36,26 +40,29 @@ class attention_module(nn.Module):
         )
 
     def forward(self, x):
-        """X can be shape B,S,D or S,D where B,S,D denote batch,seq len and d_model respectively"""
-        if x.ndim not in (2, 3):
+        """Accept and return shape [B, S, D]: batch, sequence length, d_model."""
+        if x.ndim != 3:
             raise ValueError(
-                "Inputs to attention forward should have shape ndim 2 or 3"
+                "Inputs to attention forward must have shape [B, S, D] (ndim=3)."
             )
-        if x.ndim == 2:
-            x = x.unsqueeze(0)
-        # x is B,S,D at this point
         if x.shape[-1] != self.d_model:
             raise ValueError("Last dimension must match model dimension.")
-        B,S, _ = x.shape
-        d_model,d_head = self.d_model,self.d_head
-        num_heads: int = d_model//d_head
-        q,k,v = self.W_q(x).reshape(B,num_heads,S,d_head),self.W_k(x).reshape(B,num_heads,S,d_head),self.W_v(x).reshape(B,num_heads,S,d_head)
-        attn_matrices = q@k.transpose(1,2)/d_model**0.5
+        B, S, _ = x.shape
+        d_model, d_head = self.d_model, self.d_head
+        num_heads: int = d_model // d_head
+        # Split each token's features into heads, then attend within each head.
+        q = self.W_q(x).reshape(B, S, num_heads, d_head).transpose(1, 2)
+        k = self.W_k(x).reshape(B, S, num_heads, d_head).transpose(1, 2)
+        v = self.W_v(x).reshape(B, S, num_heads, d_head).transpose(1, 2)
+        attn_matrices = (q @ k.transpose(-2, -1)) / d_head**0.5
         mask = torch.ones(S, S, device=x.device, dtype=torch.bool).triu(diagonal=1)
         attn_scores = attn_matrices.masked_fill(mask, float("-inf"))
-        softmax_scores = torch.softmax(attn_scores,dim=-1)
-        modified_reps = softmax_scores@v # B,num_heads,S,d_head
-        return modified_reps.transpose(2,3).reshape(B,S,d_model)
+        softmax_scores = torch.softmax(attn_scores, dim=-1)
+        modified_reps = softmax_scores @ v  # B,num_heads,S,d_head
+        # Group all heads for each token before merging their feature dimensions.
+        return modified_reps.transpose(1, 2).reshape(B, S, d_model)
+
+
 class llama_style_model(nn.Module):
     def __init__(self, config):
         super().__init__()
