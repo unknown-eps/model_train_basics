@@ -28,5 +28,7 @@ verified config. As each piece lands, update this section with the real commands
 
 ## Commands
 
-None exist yet. Once `pixi.toml` and configs exist, record the exact commands here
-(lint -> format -> test order, and how to run a single test).
+- Run tests: `pixi run -e gpu python -m pytest tests -q` (tests use CPU tensors).
+- Run a single test: `pixi run -e gpu python -m pytest tests/test_model.py::test_attention_matches_loop_reference -q`.
+- The same test commands can use `-e cpu` once that environment is installed.
+- Lint/format and pre-commit configuration are not set up yet.
