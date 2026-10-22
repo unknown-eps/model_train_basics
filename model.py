@@ -38,6 +38,7 @@ class attention_module(nn.Module):
             nn.Linear(d_model, d_model),
             nn.Linear(d_model, d_model),
         )
+        self.W_o = nn.Linear(d_model, d_model)
 
     def forward(self, x):
         """Accept and return shape [B, S, D]: batch, sequence length, d_model."""
@@ -60,7 +61,8 @@ class attention_module(nn.Module):
         softmax_scores = torch.softmax(attn_scores, dim=-1)
         modified_reps = softmax_scores @ v  # B,num_heads,S,d_head
         # Group all heads for each token before merging their feature dimensions.
-        return modified_reps.transpose(1, 2).reshape(B, S, d_model)
+        output = modified_reps.transpose(1, 2).reshape(B, S, d_model)
+        return self.W_o(output)
 
 
 class builtin_attention_module(nn.Module):
@@ -94,11 +96,8 @@ class builtin_attention_module(nn.Module):
             result.attention.in_proj_bias.copy_(
                 torch.cat([source.W_q.bias, source.W_k.bias, source.W_v.bias])
             )
-            # The source concatenates heads without applying an output projection.
-            result.attention.out_proj.weight.copy_(
-                torch.eye(source.d_model, device=weight.device, dtype=weight.dtype)
-            )
-            result.attention.out_proj.bias.zero_()
+            result.attention.out_proj.weight.copy_(source.W_o.weight)
+            result.attention.out_proj.bias.copy_(source.W_o.bias)
         result.train(source.training)
         return result
 

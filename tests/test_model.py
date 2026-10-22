@@ -63,6 +63,7 @@ def test_attention_matches_loop_reference():
                         expected[batch, query, features] += (
                             weights[key] * v[batch, key, features]
                         )
+        expected = module.W_o(expected)
 
     assert actual.shape == (B, S, D)
     torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
