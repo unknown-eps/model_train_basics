@@ -39,3 +39,4 @@ dist/
 *.ckpt
 wandb/
 runs/
+profiles/

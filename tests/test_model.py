@@ -69,6 +69,22 @@ def test_attention_matches_loop_reference():
     torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
 
 
+@pytest.mark.parametrize("use_builtin", [False, True], ids=["custom", "builtin"])
+def test_compiled_attention_matches_eager(use_builtin):
+    torch.manual_seed(42)
+    custom = attention_module(d_model=12, d_head=6).cpu().eval()
+    module = builtin_attention_module.from_attention_module(custom) if use_builtin else custom
+    compiled = torch.compile(module, backend="inductor", dynamic=False)
+    x = torch.randn(2, 3, 12, device="cpu")
+
+    with torch.inference_mode():
+        expected = custom(x)
+        actual = compiled(x)
+
+    assert actual.shape == expected.shape
+    torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
+
+
 def test_attention_matches_builtin():
     torch.manual_seed(42)
     module = attention_module(d_model=12, d_head=6).cpu()

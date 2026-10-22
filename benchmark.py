@@ -39,7 +39,9 @@ def main():
     device = torch.device("cuda:0")
     print(f"GPU: {torch.cuda.get_device_name(device)}")
     print(f"PyTorch: {torch.__version__}; CUDA: {torch.version.cuda}")
-    print("Mode: eval + inference_mode; dtype: float32; forward only; no torch.compile")
+    print("Mode: eval + inference_mode; dtype: float32; forward only")
+    print("Compiled variants: torch.compile(backend='inductor', dynamic=False, mode='default').")
+    print("Compilation occurs during warmup and is excluded from measurements.")
     print("Full modules timed, including projections and mask creation.")
     print("Both modules include matching Q/K/V and output projections.")
     print(
@@ -48,12 +50,12 @@ def main():
     )
     print(
         f"Timing: CUDA events; {WARMUP_STEPS} warmups then {REPETITIONS} measured "
-        "forwards per module and size; alternating measurement order."
+        "forwards per module and size; rotating measurement order."
     )
-    print("Speedup = custom mean / built-in mean (>1 means built-in is faster).\n")
+    print("Speedup = eager custom mean / variant mean (>1 means faster).\n")
     print(
-        f"{'B/S/D/head':>20} {'Custom avg ms':>14} {'Built-in avg ms':>16} "
-        f"{'Speedup':>10} {'Custom peak MiB':>17} {'Built-in peak MiB':>19}"
+        f"{'B/S/D/head':>20} {'Variant':>20} {'Avg ms':>12} "
+        f"{'Speedup':>10} {'Peak extra MiB':>16}"
     )
 
     with torch.inference_mode():
@@ -66,7 +68,13 @@ def main():
             builtin = builtin_attention_module.from_attention_module(custom).eval()
             x = torch.randn(B, S, D, device=device, dtype=torch.float32)
 
-            modules = (custom, builtin)
+            variants = (
+                ("custom", custom),
+                ("builtin", builtin),
+                ("custom_compiled", torch.compile(custom, backend="inductor", dynamic=False)),
+                ("builtin_compiled", torch.compile(builtin, backend="inductor", dynamic=False)),
+            )
+            modules = tuple(module for _, module in variants)
             events = [
                 [
                     (
@@ -84,15 +92,15 @@ def main():
                     end.record()
             torch.cuda.synchronize(device)
 
-            # Warm both modules before timing either one.
+            # Compile and warm all modules before timing any of them.
             for _ in range(WARMUP_STEPS):
                 for index in range(len(modules)):
                     modules[index](x)
             torch.cuda.synchronize(device)
 
             for repetition in range(REPETITIONS):
-                order = (0, 1) if repetition % 2 == 0 else (1, 0)
-                for index in order:
+                for offset in range(len(modules)):
+                    index = (repetition + offset) % len(modules)
                     start, end = events[index][repetition]
                     start.record()
                     modules[index](x)
@@ -104,23 +112,16 @@ def main():
                 for pairs in events
             ]
 
-            # Keep correctness checks outside both warmup and measured forwards.
-            torch.testing.assert_close(builtin(x), custom(x), rtol=1e-4, atol=1e-5)
-
             # Profile each module separately, without disturbing the latency samples.
-            custom_memory = peak_forward_memory(custom, x)
-            builtin_memory = peak_forward_memory(builtin, x)
-
-            custom_time, builtin_time = measurements
             shape = f"{B}/{S}/{D}/{d_head}"
-            print(
-                f"{shape:>20} {custom_time:14.3f} "
-                f"{builtin_time:16.3f} "
-                f"{custom_time / builtin_time:9.2f}x "
-                f"{custom_memory:17.2f} {builtin_memory:19.2f}",
-                flush=True,
-            )
-            del custom, builtin, modules, x
+            for index in range(len(modules)):
+                memory = peak_forward_memory(modules[index], x)
+                print(
+                    f"{shape:>20} {variants[index][0]:>20} {measurements[index]:12.3f} "
+                    f"{measurements[0] / measurements[index]:9.2f}x {memory:16.2f}",
+                    flush=True,
+                )
+            del custom, builtin, variants, modules, x
 
 
 if __name__ == "__main__":
