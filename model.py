@@ -63,6 +63,59 @@ class attention_module(nn.Module):
         return modified_reps.transpose(1, 2).reshape(B, S, d_model)
 
 
+class builtin_attention_module(nn.Module):
+    """Causal attention using PyTorch's pre-built multi-head attention."""
+
+    def __init__(self, d_model, d_head):
+        super().__init__()
+        if d_model <= 0 or d_head <= 0 or d_model % d_head != 0:
+            raise ValueError(
+                "d_model and d_head must be positive, and d_head must divide d_model."
+            )
+        self.attention = nn.MultiheadAttention(
+            embed_dim=d_model,
+            num_heads=d_model // d_head,
+            dropout=0.0,
+            batch_first=True,
+        )
+
+    @classmethod
+    def from_attention_module(cls, source: attention_module):
+        """Copy parameters without sharing them with the source module."""
+        weight = source.W_q.weight
+        result = cls(source.d_model, source.d_head).to(
+            device=weight.device, dtype=weight.dtype
+        )
+        with torch.no_grad():
+            # PyTorch packs its Q, K, V projections in that order along dimension 0.
+            result.attention.in_proj_weight.copy_(
+                torch.cat([source.W_q.weight, source.W_k.weight, source.W_v.weight])
+            )
+            result.attention.in_proj_bias.copy_(
+                torch.cat([source.W_q.bias, source.W_k.bias, source.W_v.bias])
+            )
+            # The source concatenates heads without applying an output projection.
+            result.attention.out_proj.weight.copy_(
+                torch.eye(source.d_model, device=weight.device, dtype=weight.dtype)
+            )
+            result.attention.out_proj.bias.zero_()
+        result.train(source.training)
+        return result
+
+    def forward(self, x):
+        """Accept and return shape [B, S, D], matching attention_module."""
+        if x.ndim != 3:
+            raise ValueError(
+                "Inputs to attention forward must have shape [B, S, D] (ndim=3)."
+            )
+        if x.shape[-1] != self.attention.embed_dim:
+            raise ValueError("Last dimension must match model dimension.")
+        S = x.shape[1]
+        mask = torch.ones(S, S, device=x.device, dtype=torch.bool).triu(diagonal=1)
+        output, _ = self.attention(x, x, x, attn_mask=mask, need_weights=False)
+        return output
+
+
 class llama_style_model(nn.Module):
     def __init__(self, config):
         super().__init__()

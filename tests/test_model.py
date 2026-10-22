@@ -6,7 +6,7 @@ import yaml
 from pydantic import ValidationError
 
 from build_model import ModelConfig
-from model import attention_module
+from model import attention_module, builtin_attention_module
 
 
 def test_config_rejects_extra_field(tmp_path: Path):
@@ -65,4 +65,18 @@ def test_attention_matches_loop_reference():
                         )
 
     assert actual.shape == (B, S, D)
+    torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
+
+
+def test_attention_matches_builtin():
+    torch.manual_seed(42)
+    module = attention_module(d_model=12, d_head=6).cpu()
+    builtin = builtin_attention_module.from_attention_module(module)
+    x = torch.randn(2, 3, 12, device="cpu")
+
+    with torch.no_grad():
+        expected = module(x)
+        actual = builtin(x)
+
+    assert actual.shape == expected.shape
     torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-6)
