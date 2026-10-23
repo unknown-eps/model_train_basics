@@ -48,7 +48,7 @@ To capture just one case, use `--variant builtin --seq_len 2048` (or select
 `custom`, `custom_compiled`, or `builtin_compiled`).
 
 The ignored `profiles/` directory contains eight `.txt` timing/allocation reports
-and eight `.json` CUDA traces. Open a JSON trace at <https://ui.perfetto.dev> to
+and eight `.json` CUDA traces after a complete run. Open a JSON trace at <https://ui.perfetto.dev> to
 inspect operators and their CUDA kernels. Use `--output_dir PATH` to change the
 destination. Profiling adds overhead; use `benchmark.py` for performance numbers.
 Allocation tables show net operator allocations, not peak live memory.
@@ -70,3 +70,6 @@ warmups and 100 measured forwards per variant. Compilation happens during warmup
 outside timing. Reports mean CUDA-event latency, speedup relative to eager custom
 attention, and peak extra allocated memory per forward. All variants use matching
 weights; compiled wrappers share their eager module's parameters.
+
+Sequence length is capped at 2048 because the eager built-in implementation ran
+out of memory at 4096 on this GPU.

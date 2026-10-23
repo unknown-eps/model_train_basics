@@ -8,7 +8,7 @@ from matplotlib.figure import Figure
 
 from model import attention_module, builtin_attention_module
 
-# B, S, D, d_head; keep the explicit [B, H, S, S] scores modest for an 8 GB GPU.
+# B, S, D, d_head; cap S at 2048 to fit eager attention on this GPU.
 SIZES = (
     (4, 128, 2048, 256),
     (4, 256, 2048, 256),
