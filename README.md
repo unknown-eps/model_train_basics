@@ -40,6 +40,12 @@ at sequence lengths 1024 and 2048, with batch size 4, model dimension 2048, and 
 heads. Compilation uses TorchInductor with `dynamic=False` and default mode.
 Each variant gets 25 warmup forwards before one recorded inference forward;
 compilation is excluded from the capture. Output checks live only in pytest.
+Each variant and sequence length runs in a separate process, so eager captures
+do not contain compiler workers left over from other variants. Python stack
+recording is on by default to show source call information. Add `--no-with_stack`
+for a cleaner timeline. Shapes, CUDA activity, and memory recording remain on.
+To capture just one case, use `--variant builtin --seq_len 2048` (or select
+`custom`, `custom_compiled`, or `builtin_compiled`).
 
 The ignored `profiles/` directory contains eight `.txt` timing/allocation reports
 and eight `.json` CUDA traces. Open a JSON trace at <https://ui.perfetto.dev> to
