@@ -1,0 +1,28 @@
+name: CPU checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-checks:
+    name: Ruff format and CPU pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.11.2
+        with:
+          pixi-version: v0.83.0
+          environments: cpu
+          locked: true
+          cache: true
+      - name: Check Python formatting
+        run: pixi run --locked -e cpu ruff format --check .
+      - name: Run CPU-only tests
+        run: pixi run --locked -e cpu python -m pytest tests/test_model_cpu.py -q

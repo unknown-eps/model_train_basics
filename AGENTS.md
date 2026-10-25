@@ -31,9 +31,12 @@ verified config. As each piece lands, update this section with the real commands
 
 - Run tests: `pixi run -e gpu python -m pytest tests -q` (core tests use BF16 CPU
   tensors; Flash tests use BF16 CUDA tensors and skip without CUDA).
-- Run a single test: `pixi run -e gpu python -m pytest tests/test_model.py::test_attention_matches_loop_reference -q`.
-- The same test commands can use `-e cpu` once that environment is installed.
+- Run a single test: `pixi run -e gpu python -m pytest tests/test_model_cpu.py::test_attention_matches_loop_reference -q`.
+- CI CPU-only tests: `pixi run -e cpu python -m pytest tests/test_model_cpu.py -q`.
 - Format Python: `pixi run -e gpu ruff format .` (lint checking is not configured).
 - Activate Git hooks: `pixi run -e gpu pre-commit install` (once per checkout).
 - Run hooks: `pixi run -e gpu pre-commit run --all-files`. Ruff formats staged
   Python files on commit; pytest runs the full `tests/` suite on every commit.
+- GitHub Actions: `.github/workflows/ci.yaml` runs Ruff format checking and only
+  `tests/test_model_cpu.py` in the CPU environment on pushes to `main` and pull
+  requests targeting `main`. CUDA/Flash tests are not collected in CI.

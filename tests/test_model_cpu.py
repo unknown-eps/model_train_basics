@@ -1,3 +1,5 @@
+"""CPU-only model tests selected explicitly by GitHub Actions."""
+
 from pathlib import Path
 from copy import deepcopy
 

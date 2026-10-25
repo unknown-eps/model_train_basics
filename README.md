@@ -111,3 +111,24 @@ To run both hooks manually against all tracked files:
 ```bash
 pixi run -e gpu pre-commit run --all-files
 ```
+
+## GitHub CI
+
+`.github/workflows/ci.yaml` runs on every push to `main` and every pull request
+targeting `main`, regardless of author. It installs only the locked Pixi `cpu`
+environment and runs:
+
+```bash
+pixi run --locked -e cpu ruff format --check .
+pixi run --locked -e cpu python -m pytest tests/test_model_cpu.py -q
+```
+
+The explicitly selected CPU test file covers configuration validation, attention
+against an independent reference, built-in attention, and CPU compilation.
+CUDA/Flash tests are not collected by CI. Local pre-commit still runs all tests.
+CI checks formatting without modifying files; fix failures locally with Ruff.
+Commit `pixi.lock` along with the workflow for reproducible installs.
+
+To block merges when checks fail, configure a GitHub branch rule/ruleset for
+`main` requiring the **Ruff format and CPU pytest** check. Running CI alone does
+not enforce this merge restriction or prevent direct pushes.
