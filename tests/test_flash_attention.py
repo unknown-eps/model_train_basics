@@ -15,7 +15,9 @@ pytestmark = pytest.mark.skipif(
 @pytest.mark.parametrize("d_model,d_head", [(16, 8), (512, 256)])
 def test_flash_attention_matches_float32_reference(compiled, d_model, d_head):
     torch.manual_seed(42)
-    source = attention_module(d_model, d_head).to(device="cuda", dtype=torch.bfloat16).eval()
+    source = (
+        attention_module(d_model, d_head).to(device="cuda", dtype=torch.bfloat16).eval()
+    )
     reference = deepcopy(source).float()
     flash = flash_attention_module.from_attention_module(source)
     if compiled:

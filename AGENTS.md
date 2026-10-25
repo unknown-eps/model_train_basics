@@ -33,4 +33,7 @@ verified config. As each piece lands, update this section with the real commands
   tensors; Flash tests use BF16 CUDA tensors and skip without CUDA).
 - Run a single test: `pixi run -e gpu python -m pytest tests/test_model.py::test_attention_matches_loop_reference -q`.
 - The same test commands can use `-e cpu` once that environment is installed.
-- Lint/format and pre-commit configuration are not set up yet.
+- Format Python: `pixi run -e gpu ruff format .` (lint checking is not configured).
+- Activate Git hooks: `pixi run -e gpu pre-commit install` (once per checkout).
+- Run hooks: `pixi run -e gpu pre-commit run --all-files`. Ruff formats staged
+  Python files on commit; pytest runs the full `tests/` suite on every commit.

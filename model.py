@@ -84,7 +84,9 @@ class flash_attention_module(attention_module):
     def forward(self, x):
         """Accept and return [B, S, D]; unsupported Flash inputs raise an error."""
         if x.ndim != 3:
-            raise ValueError("Inputs to attention forward must have shape [B, S, D] (ndim=3).")
+            raise ValueError(
+                "Inputs to attention forward must have shape [B, S, D] (ndim=3)."
+            )
         if x.shape[-1] != self.d_model:
             raise ValueError("Last dimension must match model dimension.")
         B, S, _ = x.shape

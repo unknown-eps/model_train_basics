@@ -34,12 +34,20 @@ def plot_results(results, gpu_name):
         ]
         label = name.replace("_", " ")
         time_axis.bar(
-            positions, [sample["time_mean"] for sample in samples], width,
-            yerr=[sample["time_std"] for sample in samples], capsize=3, label=label,
+            positions,
+            [sample["time_mean"] for sample in samples],
+            width,
+            yerr=[sample["time_std"] for sample in samples],
+            capsize=3,
+            label=label,
         )
         memory_axis.bar(
-            positions, [sample["memory_mean"] for sample in samples], width,
-            yerr=[sample["memory_std"] for sample in samples], capsize=3, label=label,
+            positions,
+            [sample["memory_mean"] for sample in samples],
+            width,
+            yerr=[sample["memory_std"] for sample in samples],
+            capsize=3,
+            label=label,
         )
 
     for axis in (time_axis, memory_axis):
@@ -52,7 +60,9 @@ def plot_results(results, gpu_name):
 
     time_axis.set_title(f"Mean forward time ± 1 SD ({REPETITIONS} repetitions)")
     time_axis.set_ylabel("Time (ms)")
-    memory_axis.set_title("Mean per-forward peak memory above baseline ± 1 SD\nIncludes output; excludes weights and input")
+    memory_axis.set_title(
+        "Mean per-forward peak memory above baseline ± 1 SD\nIncludes output; excludes weights and input"
+    )
     memory_axis.set_ylabel("Peak extra memory (MiB)")
     B, _, D, d_head = SIZES[0]
     figure.suptitle(
@@ -90,7 +100,9 @@ def main():
     print(f"PyTorch: {torch.__version__}; CUDA: {torch.version.cuda}")
     print("Mode: eval + inference_mode; dtype: bfloat16; forward only")
     print("Flash variants force SDPBackend.FLASH_ATTENTION; no fallback is allowed.")
-    print("Compiled variants: torch.compile(backend='inductor', dynamic=False, mode='default').")
+    print(
+        "Compiled variants: torch.compile(backend='inductor', dynamic=False, mode='default')."
+    )
     print("Compilation occurs during warmup and is excluded from measurements.")
     print("Full modules timed, including projections and mask creation.")
     print("All modules include matching Q/K/V and output projections.")
@@ -103,7 +115,9 @@ def main():
         "forwards per module and size; rotating measurement order."
     )
     print("Speedup = eager custom mean / variant mean (>1 means faster).\n")
-    print(f"Error bars: sample standard deviation; {REPETITIONS} separate memory runs per variant.")
+    print(
+        f"Error bars: sample standard deviation; {REPETITIONS} separate memory runs per variant."
+    )
     print(
         f"{'B/S/D/head':>20} {'Variant':>20} {'Avg ms':>12} {'SD ms':>10} "
         f"{'Speedup':>10} {'Avg peak MiB':>14} {'SD MiB':>10}"
@@ -124,10 +138,19 @@ def main():
             variants = (
                 ("custom", custom),
                 ("builtin", builtin),
-                ("custom_compiled", torch.compile(custom, backend="inductor", dynamic=False)),
-                ("builtin_compiled", torch.compile(builtin, backend="inductor", dynamic=False)),
+                (
+                    "custom_compiled",
+                    torch.compile(custom, backend="inductor", dynamic=False),
+                ),
+                (
+                    "builtin_compiled",
+                    torch.compile(builtin, backend="inductor", dynamic=False),
+                ),
                 ("flash", flash),
-                ("flash_compiled", torch.compile(flash, backend="inductor", dynamic=False)),
+                (
+                    "flash_compiled",
+                    torch.compile(flash, backend="inductor", dynamic=False),
+                ),
             )
             modules = tuple(module for _, module in variants)
             events = [
@@ -163,8 +186,7 @@ def main():
             # Read elapsed GPU milliseconds only after all timed work completes.
             torch.cuda.synchronize(device)
             time_samples = [
-                [start.elapsed_time(end) for start, end in pairs]
-                for pairs in events
+                [start.elapsed_time(end) for start, end in pairs] for pairs in events
             ]
             measurements = [mean(samples) for samples in time_samples]
 
@@ -178,12 +200,14 @@ def main():
                 time_std = stdev(time_samples[index])
                 memory_std = stdev(memory_samples)
                 name = variants[index][0]
-                results.setdefault(name, []).append({
-                    "time_mean": measurements[index],
-                    "time_std": time_std,
-                    "memory_mean": memory,
-                    "memory_std": memory_std,
-                })
+                results.setdefault(name, []).append(
+                    {
+                        "time_mean": measurements[index],
+                        "time_std": time_std,
+                        "memory_mean": memory,
+                        "memory_std": memory_std,
+                    }
+                )
                 print(
                     f"{shape:>20} {variants[index][0]:>20} {measurements[index]:12.3f} "
                     f"{time_std:10.3f} {measurements[0] / measurements[index]:9.2f}x "

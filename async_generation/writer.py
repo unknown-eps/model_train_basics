@@ -15,10 +15,12 @@ class ShardWriter:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=False)
         self.shard_size = shard_size
-        self.schema = pa.schema([
-            ("id", pa.int32()),
-            ("tokens", pa.list_(pa.int32())),
-        ])
+        self.schema = pa.schema(
+            [
+                ("id", pa.int32()),
+                ("tokens", pa.list_(pa.int32())),
+            ]
+        )
         self.buffer = []
         self.shards_written = 0
 

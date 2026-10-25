@@ -91,3 +91,23 @@ The existing attention tests run with BF16 CPU tensors. Flash tests run on CUDA
 and skip when CUDA is unavailable. They exercise eager and compiled Flash,
 compare against a float32 reference with BF16 tolerances, and check causality.
 The float32 reference is only for testing, not part of the BF16 benchmarks.
+
+## Pre-commit hooks
+
+Activate the hooks once per checkout:
+
+```bash
+pixi run -e gpu pre-commit install
+```
+
+Before each commit, Ruff formats staged Python files and pytest runs the full
+`tests/` suite in the GPU environment. CUDA tests skip if CUDA is unavailable.
+If Ruff changes files, review and stage those changes, then retry the commit.
+Test failures block the commit as well. No separate hook environments are used;
+the hooks use the tools installed by Pixi.
+
+To run both hooks manually against all tracked files:
+
+```bash
+pixi run -e gpu pre-commit run --all-files
+```

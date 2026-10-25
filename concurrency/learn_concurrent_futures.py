@@ -1,6 +1,6 @@
 import argparse
 import time
-from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 
 def task(n, base_time, use_diff=False):
@@ -21,8 +21,12 @@ def compute_task(n):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--compute", action="store_true", help="Run CPU work instead of sleep")
-    parser.add_argument("--process_pool",action="store_true",help="Use process pool executor")
+    parser.add_argument(
+        "--compute", action="store_true", help="Run CPU work instead of sleep"
+    )
+    parser.add_argument(
+        "--process_pool", action="store_true", help="Use process pool executor"
+    )
     args = parser.parse_args()
     start = time.perf_counter()
     my_executor = ProcessPoolExecutor if args.process_pool else ThreadPoolExecutor

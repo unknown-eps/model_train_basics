@@ -47,7 +47,11 @@ def test_attention_matches_loop_reference():
         # Share the learned projections, but compute attention without head reshapes
         # or batched matrix multiplication so this is an independent reference.
         # Accumulate the independent reference in float32 to limit rounding error.
-        q, k, v = reference.W_q(x.float()), reference.W_k(x.float()), reference.W_v(x.float())
+        q, k, v = (
+            reference.W_q(x.float()),
+            reference.W_k(x.float()),
+            reference.W_v(x.float()),
+        )
         expected = torch.zeros_like(x, dtype=torch.float32)
         for batch in range(B):
             for head in range(D // d_head):
@@ -56,7 +60,9 @@ def test_attention_matches_loop_reference():
                     # Only current/past keys participate: future weights are zero.
                     scores = torch.stack(
                         [
-                            torch.dot(q[batch, query, features], k[batch, key, features])
+                            torch.dot(
+                                q[batch, query, features], k[batch, key, features]
+                            )
                             / d_head**0.5
                             for key in range(query + 1)
                         ]
@@ -75,8 +81,16 @@ def test_attention_matches_loop_reference():
 @pytest.mark.parametrize("use_builtin", [False, True], ids=["custom", "builtin"])
 def test_compiled_attention_matches_eager(use_builtin):
     torch.manual_seed(42)
-    custom = attention_module(d_model=12, d_head=6).to(device="cpu", dtype=torch.bfloat16).eval()
-    module = builtin_attention_module.from_attention_module(custom) if use_builtin else custom
+    custom = (
+        attention_module(d_model=12, d_head=6)
+        .to(device="cpu", dtype=torch.bfloat16)
+        .eval()
+    )
+    module = (
+        builtin_attention_module.from_attention_module(custom)
+        if use_builtin
+        else custom
+    )
     compiled = torch.compile(module, backend="inductor", dynamic=False)
     x = torch.randn(2, 3, 12, device="cpu", dtype=torch.bfloat16)
 
@@ -90,7 +104,9 @@ def test_compiled_attention_matches_eager(use_builtin):
 
 def test_attention_matches_builtin():
     torch.manual_seed(42)
-    module = attention_module(d_model=12, d_head=6).to(device="cpu", dtype=torch.bfloat16)
+    module = attention_module(d_model=12, d_head=6).to(
+        device="cpu", dtype=torch.bfloat16
+    )
     builtin = builtin_attention_module.from_attention_module(module)
     x = torch.randn(2, 3, 12, device="cpu", dtype=torch.bfloat16)
 
