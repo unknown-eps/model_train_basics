@@ -43,5 +43,26 @@ real model computation or GPU use. `asyncio.sleep` lets other requests progress
 between decoding steps; a CPU-heavy Python loop would instead block the server's
 event-loop thread.
 
-Only the mock server is implemented at this stage; request workers and Parquet
-sharding will come later.
+## Run the client
+
+With the server running, use another terminal at the repository root:
+
+```bash
+pixi run -e gpu python -m async_generation.run --output-dir async_generation/output/run-001
+```
+
+The output directory must not already exist, to avoid overwriting previous runs.
+The defaults are four prompts, four concurrent requests, two records per shard,
+and a throughput report every 1000 completions (plus the final remainder).
+Use `--num-prompts`, `--concurrency`, `--shard-size`, `--report-every`, and
+`--seed` to change these settings.
+
+One collector measures completion throughput, buffers records, and awaits a
+background-thread writer. Files have an explicit `int32` / `list<int32>` schema
+and Zstd compression. Temporary files are renamed only after a successful close;
+this is not a guarantee of durability against power loss.
+
+The initial failure policy is fail-fast: a failed request or writer cancels the
+pipeline. Previously saved shards remain; queued/unbuffered work can be lost.
+There are no retries or resume support yet. Cancelling an await on a writer
+thread does not forcibly stop a write already running in that thread.
