@@ -6,6 +6,8 @@ from pathlib import Path
 import torch
 import yaml
 from torch import nn
+from torch.nn import functional as F
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from build_model import ModelConfig
 
@@ -62,6 +64,40 @@ class attention_module(nn.Module):
         modified_reps = softmax_scores @ v  # B,num_heads,S,d_head
         # Group all heads for each token before merging their feature dimensions.
         output = modified_reps.transpose(1, 2).reshape(B, S, d_model)
+        return self.W_o(output)
+
+
+class flash_attention_module(attention_module):
+    """The same projections with PyTorch's forced CUDA Flash Attention backend."""
+
+    @classmethod
+    def from_attention_module(cls, source: attention_module):
+        """Copy all four projections without sharing parameter storage."""
+        weight = source.W_q.weight
+        result = cls(source.d_model, source.d_head).to(
+            device=weight.device, dtype=weight.dtype
+        )
+        result.load_state_dict(source.state_dict())
+        result.train(source.training)
+        return result
+
+    def forward(self, x):
+        """Accept and return [B, S, D]; unsupported Flash inputs raise an error."""
+        if x.ndim != 3:
+            raise ValueError("Inputs to attention forward must have shape [B, S, D] (ndim=3).")
+        if x.shape[-1] != self.d_model:
+            raise ValueError("Last dimension must match model dimension.")
+        B, S, _ = x.shape
+        heads = self.d_model // self.d_head
+        q = self.W_q(x).reshape(B, S, heads, self.d_head).transpose(1, 2)
+        k = self.W_k(x).reshape(B, S, heads, self.d_head).transpose(1, 2)
+        v = self.W_v(x).reshape(B, S, heads, self.d_head).transpose(1, 2)
+        # Only Flash is allowed: do not silently benchmark a fallback backend.
+        with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):
+            output = F.scaled_dot_product_attention(
+                q, k, v, is_causal=True, dropout_p=0.0
+            )
+        output = output.transpose(1, 2).reshape(B, S, self.d_model)
         return self.W_o(output)
 
 

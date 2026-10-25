@@ -6,7 +6,7 @@ from statistics import mean, stdev
 import torch
 from matplotlib.figure import Figure
 
-from model import attention_module, builtin_attention_module
+from model import attention_module, builtin_attention_module, flash_attention_module
 
 # B, S, D, d_head; cap S at 2048 to fit eager attention on this GPU.
 SIZES = (
@@ -57,7 +57,7 @@ def plot_results(results, gpu_name):
     B, _, D, d_head = SIZES[0]
     figure.suptitle(
         f"Attention on {gpu_name}\n"
-        f"B={B}, D={D}, heads={D // d_head}; float32 inference; "
+        f"B={B}, D={D}, heads={D // d_head}; bfloat16 inference; "
         f"{WARMUP_STEPS} warmups; compilation excluded"
     )
     PLOT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -88,11 +88,12 @@ def main():
     device = torch.device("cuda:0")
     print(f"GPU: {torch.cuda.get_device_name(device)}")
     print(f"PyTorch: {torch.__version__}; CUDA: {torch.version.cuda}")
-    print("Mode: eval + inference_mode; dtype: float32; forward only")
+    print("Mode: eval + inference_mode; dtype: bfloat16; forward only")
+    print("Flash variants force SDPBackend.FLASH_ATTENTION; no fallback is allowed.")
     print("Compiled variants: torch.compile(backend='inductor', dynamic=False, mode='default').")
     print("Compilation occurs during warmup and is excluded from measurements.")
     print("Full modules timed, including projections and mask creation.")
-    print("Both modules include matching Q/K/V and output projections.")
+    print("All modules include matching Q/K/V and output projections.")
     print(
         "Memory: peak extra allocated MiB per forward (including output); excludes "
         "resident weights/inputs, allocator cache, and non-PyTorch CUDA allocations."
@@ -113,17 +114,20 @@ def main():
         for B, S, D, d_head in SIZES:
             custom = (
                 attention_module(D, d_head)
-                .to(device=device, dtype=torch.float32)
+                .to(device=device, dtype=torch.bfloat16)
                 .eval()
             )
             builtin = builtin_attention_module.from_attention_module(custom).eval()
-            x = torch.randn(B, S, D, device=device, dtype=torch.float32)
+            flash = flash_attention_module.from_attention_module(custom).eval()
+            x = torch.randn(B, S, D, device=device, dtype=torch.bfloat16)
 
             variants = (
                 ("custom", custom),
                 ("builtin", builtin),
                 ("custom_compiled", torch.compile(custom, backend="inductor", dynamic=False)),
                 ("builtin_compiled", torch.compile(builtin, backend="inductor", dynamic=False)),
+                ("flash", flash),
+                ("flash_compiled", torch.compile(flash, backend="inductor", dynamic=False)),
             )
             modules = tuple(module for _, module in variants)
             events = [
@@ -186,7 +190,7 @@ def main():
                     f"{memory:14.2f} {memory_std:10.2f}",
                     flush=True,
                 )
-            del custom, builtin, variants, modules, x
+            del custom, builtin, flash, variants, modules, x
 
     # Plot only after all GPU measurements have completed.
     plot_results(results, torch.cuda.get_device_name(device))

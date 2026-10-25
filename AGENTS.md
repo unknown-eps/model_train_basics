@@ -22,13 +22,15 @@ verified config. As each piece lands, update this section with the real commands
 - **Pixi** for environment setup, with two groups: `gpu` (torch, transformers, ipykernel
   for VS Code notebook testing) and `cpu`-only for GitHub CI.
 - **pytest** for tests, **ruff** for linting and formatting, enforced via pre-commit.
-- Tests must run on **CPU** so they work in GitHub CI (no GPU assumptions in tests).
+- Core tests must run on **CPU** so they work in GitHub CI. Flash Attention tests
+  require CUDA and skip on CPU-only systems.
 - End goal: integrate the model with HF `transformers` and enable/compare Flash
   Attention 2 against standard attention.
 
 ## Commands
 
-- Run tests: `pixi run -e gpu python -m pytest tests -q` (tests use CPU tensors).
+- Run tests: `pixi run -e gpu python -m pytest tests -q` (core tests use BF16 CPU
+  tensors; Flash tests use BF16 CUDA tensors and skip without CUDA).
 - Run a single test: `pixi run -e gpu python -m pytest tests/test_model.py::test_attention_matches_loop_reference -q`.
 - The same test commands can use `-e cpu` once that environment is installed.
 - Lint/format and pre-commit configuration are not set up yet.

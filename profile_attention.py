@@ -8,9 +8,9 @@ import sys
 import torch
 from torch.profiler import ProfilerActivity, profile
 
-from model import attention_module, builtin_attention_module
+from model import attention_module, builtin_attention_module, flash_attention_module
 
-VARIANTS = ("custom", "builtin", "custom_compiled", "builtin_compiled")
+VARIANTS = ("custom", "builtin", "custom_compiled", "builtin_compiled", "flash", "flash_compiled")
 SEQUENCE_LENGTHS = (1024, 2048)
 
 
@@ -99,7 +99,8 @@ def main():
     device = torch.device("cuda:0")
     print(f"GPU: {torch.cuda.get_device_name(device)}")
     print(f"PyTorch: {torch.__version__}; CUDA: {torch.version.cuda}")
-    print("B=4, D=2048, heads=8; float32; eval + inference_mode")
+    print("B=4, D=2048, heads=8; bfloat16; eval + inference_mode")
+    print("Flash variants force SDPBackend.FLASH_ATTENTION; no fallback is allowed.")
     print(f"Isolated capture: {args.variant}, S={args.seq_len}; Python stacks={args.with_stack}")
     print("Compiled variants use backend=inductor, dynamic=False, mode=default.")
     print("Compilation occurs during warmup, outside profiler captures.")
@@ -108,10 +109,13 @@ def main():
     print(f"Reports and Perfetto-compatible traces: {args.output_dir.resolve()}")
 
     with torch.inference_mode():
-        custom = attention_module(2048, 256).to(device=device, dtype=torch.float32).eval()
-        x = torch.randn(4, args.seq_len, 2048, device=device, dtype=torch.float32)
+        custom = attention_module(2048, 256).to(device=device, dtype=torch.bfloat16).eval()
+        x = torch.randn(4, args.seq_len, 2048, device=device, dtype=torch.bfloat16)
         if args.variant.startswith("builtin"):
             module = builtin_attention_module.from_attention_module(custom).eval()
+            del custom
+        elif args.variant.startswith("flash"):
+            module = flash_attention_module.from_attention_module(custom).eval()
             del custom
         else:
             module = custom
